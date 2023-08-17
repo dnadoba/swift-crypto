@@ -18,7 +18,9 @@ import Crypto
 @_implementationOnly import Security
 
 internal struct SecurityRSAPublicKey {
-    private var backing: SecKey
+    private let backing: SecKey
+    
+    let keySizeInBits: Int
 
     init(pemRepresentation: String) throws {
         let document = try ASN1.PEMDocument(pemString: pemRepresentation)
@@ -39,7 +41,7 @@ internal struct SecurityRSAPublicKey {
             throw error!.takeRetainedValue() as Error
         }
 
-        self.backing = unwrappedKey
+        self.init(unwrappedKey)
     }
 
     var pkcs1DERRepresentation: Data {
@@ -60,19 +62,19 @@ internal struct SecurityRSAPublicKey {
         return ASN1.PEMDocument(type: _RSA.SPKIPublicKeyType, derBytes: self.derRepresentation).pemString
     }
 
-    var keySizeInBits: Int {
-        let attributes = SecKeyCopyAttributes(self.backing)! as NSDictionary
-        return (attributes[kSecAttrKeySizeInBits]! as! NSNumber).intValue
-    }
-
     fileprivate init(_ backing: SecKey) {
         self.backing = backing
+        
+        let attributes = SecKeyCopyAttributes(self.backing)! as NSDictionary
+        self.keySizeInBits = (attributes[kSecAttrKeySizeInBits]! as! NSNumber).intValue
     }
 }
 
 
 internal struct SecurityRSAPrivateKey {
-    private var backing: SecKey
+    private let backing: SecKey
+    
+    let keySizeInBits: Int
 
     init(pemRepresentation: String) throws {
         let document = try ASN1.PEMDocument(pemString: pemRepresentation)
@@ -116,6 +118,9 @@ internal struct SecurityRSAPrivateKey {
         }
 
         self.backing = unwrappedKey
+        
+        let attributes = SecKeyCopyAttributes(self.backing)! as NSDictionary
+        self.keySizeInBits = (attributes[kSecAttrKeySizeInBits]! as! NSNumber).intValue
     }
 
     init(keySize: _RSA.Signing.KeySize) throws {
@@ -133,6 +138,7 @@ internal struct SecurityRSAPrivateKey {
         }
 
         self.backing = unwrappedKey
+        self.keySizeInBits = keySize.bitCount
     }
 
     var derRepresentation: Data {
@@ -143,11 +149,6 @@ internal struct SecurityRSAPrivateKey {
 
     var pemRepresentation: String {
         return ASN1.PEMDocument(type: _RSA.PKCS1KeyType, derBytes: self.derRepresentation).pemString
-    }
-
-    var keySizeInBits: Int {
-        let attributes = SecKeyCopyAttributes(self.backing)! as NSDictionary
-        return (attributes[kSecAttrKeySizeInBits]! as! NSNumber).intValue
     }
 
     var publicKey: SecurityRSAPublicKey {
